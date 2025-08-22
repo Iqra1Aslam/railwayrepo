@@ -3,5 +3,4 @@ FROM ollama/ollama:latest
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 ENV OLLAMA_HOST=0.0.0.0:${PORT}
-VOLUME ["/root/.ollama"]
 CMD ["/start.sh"]
