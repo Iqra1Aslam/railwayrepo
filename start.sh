@@ -13,8 +13,8 @@ sleep 5
 ollama pull deepseek-r1:1.5b || true
 
 # Start FastAPI (using uvicorn to serve main.py)
-echo "Starting FastAPI app..."
-uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+# echo "Starting FastAPI app..."
+# uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 
 # Wait on both processes
 wait -n
