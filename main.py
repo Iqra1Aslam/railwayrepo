@@ -1,53 +1,63 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import httpx
-import os
 
-# Use environment variable or fallback
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+# Your local Ollama server
+OLLAMA_URL = "http://localhost:11434/api/chat"
 
-app = FastAPI(title="Ollama Wrapper", version="1.0")
+app = FastAPI(title="Ollama OpenAI-Compatible API", version="1.0")
 
-# Request schema
-class GenerateRequest(BaseModel):
-    prompt: str
-    model: str = "deepseek-r1:1.5b"
-    stream: bool | None = False
-    options: dict | None = None
+# Input schema (similar to OpenAI API)
+class ChatMessage(BaseModel):
+    role: str
+    content: str
 
-# Response schema
-class GenerateResponse(BaseModel):
-    text: str
+class ChatCompletionRequest(BaseModel):
+    model: str
+    messages: list[ChatMessage]
+    stream: bool | None = False  # disable streaming by default
+    options: dict | None = None  # extra Ollama params
+
+
+@app.post("/v1/chat/completions")
+async def create_chat_completion(req: ChatCompletionRequest):
+    try:
+        payload = {
+            "model": req.model,
+            "messages": [{"role": m.role, "content": m.content} for m in req.messages],
+        }
+
+        if req.options:
+            payload["options"] = req.options
+
+        async with httpx.AsyncClient() as client:
+            r = await client.post(OLLAMA_URL, json=payload)
+            r.raise_for_status()
+            data = r.json()
+
+        # Mimic OpenAI’s response format
+        return {
+            "id": "chatcmpl-12345",
+            "object": "chat.completion",
+            "model": req.model,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": data["message"],
+                    "finish_reason": "stop"
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "Ollama wrapper running"}
-
-@app.post("/generate", response_model=GenerateResponse)
-async def generate(req: GenerateRequest):
-    """
-    Call Ollama API running inside container to generate text.
-    """
-    try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                f"{OLLAMA_URL}/api/generate",
-                json={
-                    "model": req.model,
-                    "prompt": req.prompt,
-                    "stream": req.stream,
-                    "options": req.options or {},
-                },
-            )
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Ollama error: {response.text}",
-                )
-
-            data = response.json()
-            # Ollama’s /api/generate returns {"response": "..."} not "text"
-            return {"text": data.get("response", "")}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error contacting Ollama: {str(e)}")
+    return {"status": "ok", "message": "Ollama proxy is running"}
