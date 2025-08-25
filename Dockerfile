@@ -1,13 +1,6 @@
 FROM ollama/ollama:latest
-
-# Install Python and pip
-RUN apt-get update && apt-get install -y python3 python3-pip
-
-# Install FastAPI + Uvicorn
-RUN pip3 install fastapi uvicorn
-
 COPY start.sh /start.sh
-RUN chmod +x /start.sh
-
-# Entrypoint
+RUN chmod +x /start.sh 
+# Don’t set ENV here — use Railway variable instead # ENV OLLAMA_HOST=0.0.0.0:${PORT}
+# Override the entrypoint so our script runs 
 ENTRYPOINT ["/bin/bash", "/start.sh"]
